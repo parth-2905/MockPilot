@@ -29,12 +29,12 @@ def health():
     return {"status": "healthy"}
 
 
-from app.routers import questions
+from app.routers import questions, answers
 
 app.include_router(questions.router, prefix="/questions", tags=["questions"])
+app.include_router(answers.router,   prefix="/answers",   tags=["answers"])
 
 # Routers to be added as they're built:
-# from app.routers import sessions, evaluation, users
+# from app.routers import sessions, users
 # app.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
-# app.include_router(evaluation.router, prefix="/evaluation", tags=["evaluation"])
-# app.include_router(users.router, prefix="/users", tags=["users"])
+# app.include_router(users.router,    prefix="/users",    tags=["users"])

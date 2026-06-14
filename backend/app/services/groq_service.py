@@ -1,5 +1,6 @@
 """
 app/services/groq_service.py
+
 Generates interview questions dynamically using Groq, calibrated against
 sample questions stored in Supabase.
 
@@ -10,15 +11,13 @@ import os
 import json
 from dotenv import load_dotenv
 from groq import Groq
-
 from app.db.supabase import supabase
 
 load_dotenv()
 
 GROQ_API_KEY = os.environ["GROQ_API_KEY"]
-GROQ_MODEL = "llama-3.1-8b-instant"
-
-client = Groq(api_key=GROQ_API_KEY)
+GROQ_MODEL   = "llama-3.1-8b-instant"
+client       = Groq(api_key=GROQ_API_KEY)
 
 
 def get_sample_questions(topic_id: int, difficulty: str, limit: int = 3) -> list[str]:
@@ -43,13 +42,16 @@ def generate_question(topic_name: str, topic_id: int, difficulty: str, role: str
         {
             "question": str,
             "ideal_answers": [str, str, str],
-            "key_concepts": [str, str, str, str, str]
+            "key_concepts": [str, ...]   # 3-7 depending on question complexity
         }
-    """
-    samples = get_sample_questions(topic_id, difficulty)
-    samples_text = "\n".join(f"- {s}" for s in samples) if samples else "(no examples available)"
 
-    role_label = "ML/Data Science" if role == "ml_ds" else "Software Engineer (SDE-1)"
+    All 3 ideal answers must cover every concept in key_concepts —
+    key_concepts is a single shared ground truth list for the question,
+    not per ideal answer.
+    """
+    samples      = get_sample_questions(topic_id, difficulty)
+    samples_text = "\n".join(f"- {s}" for s in samples) if samples else "(no examples available)"
+    role_label   = "ML/Data Science" if role == "ml_ds" else "Software Engineer (SDE-1)"
 
     system_prompt = (
         "You are an expert technical interviewer generating mock interview questions. "
@@ -57,7 +59,6 @@ def generate_question(topic_name: str, topic_id: int, difficulty: str, role: str
     )
 
     user_prompt = f"""Generate ONE new interview question for a {role_label} candidate.
-
 Topic: {topic_name}
 Difficulty: {difficulty}
 
@@ -66,8 +67,11 @@ Here are example questions at this exact difficulty level for this topic — mat
 
 Return a JSON object with exactly these keys:
 - "question": the new interview question (string)
-- "ideal_answers": an array of 3 strings, each a distinct strong answer approach/explanation to the question (varying in framing or depth)
-- "key_concepts": an array of 5 short strings, each a key concept/term/technique a strong answer should mention
+- "ideal_answers": an array of 3 strings, each a distinct strong answer approach/explanation \
+to the question (varying in framing or depth). Every ideal answer must cover ALL key concepts.
+- "key_concepts": an array of 3 to 7 short strings (choose based on question complexity), \
+each a key concept/term/technique a strong answer must mention. \
+This is a single shared list — all 3 ideal answers must cover every concept here.
 
 JSON only:"""
 
@@ -75,7 +79,7 @@ JSON only:"""
         model=GROQ_MODEL,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+            {"role": "user",   "content": user_prompt},
         ],
         temperature=0.7,
         max_tokens=1024,
@@ -99,18 +103,14 @@ JSON only:"""
 
 
 if __name__ == "__main__":
-    # Standalone test — adjust topic_id to match what's in your DB
-    # (e.g. 1 = DSA, check Supabase table editor for actual ids)
     test_topic_name = "ML Fundamentals"
-    test_topic_id = (
+    test_topic_id   = (
         supabase.table("topics").select("id").eq("name", test_topic_name).execute().data[0]["id"]
     )
-
     result = generate_question(
         topic_name=test_topic_name,
         topic_id=test_topic_id,
         difficulty="medium",
         role="ml_ds",
     )
-
     print(json.dumps(result, indent=2))
