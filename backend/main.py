@@ -9,10 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="MockPilot API")
 
-# Allow frontend (Vite dev server + future deployed frontend) to call this API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten this before deploying to prod
+    allow_origins=["*"],  # tighten before prod
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,12 +28,12 @@ def health():
     return {"status": "healthy"}
 
 
-from app.routers import questions, answers
+from app.routers import questions, answers, sessions
 
 app.include_router(questions.router, prefix="/questions", tags=["questions"])
 app.include_router(answers.router,   prefix="/answers",   tags=["answers"])
+app.include_router(sessions.router,  prefix="/sessions",  tags=["sessions"])
 
-# Routers to be added as they're built:
-# from app.routers import sessions, users
-# app.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
-# app.include_router(users.router,    prefix="/users",    tags=["users"])
+# Routers to be added:
+# from app.routers import users
+# app.include_router(users.router, prefix="/users", tags=["users"])

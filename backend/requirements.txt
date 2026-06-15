@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+supabase
+groq
+sentence-transformers
+numpy
+pymupdf
+python-dotenv
+pydantic
