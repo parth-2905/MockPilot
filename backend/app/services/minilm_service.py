@@ -1,8 +1,11 @@
 """
 app/services/minilm_service.py
 
-Answer evaluation pipeline:
-- Cosine similarity via MiniLM (semantic depth)
+Answer evaluation pipeline using HF Inference API for embeddings.
+MiniLM runs on HF's servers — zero RAM cost on Render free tier.
+
+Flow:
+- Cosine similarity via HF Inference API (semantic depth)
 - Key concept coverage (factual breadth)
 - Combined score: 0.6 x cosine + 0.4 x coverage
 - Groq verification for ambiguous scores (0.35-0.65)
@@ -11,23 +14,57 @@ Answer evaluation pipeline:
 
 import os
 import math
+import time
+import numpy as np
+import requests
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer, util
 from groq import Groq
 from app.db.supabase import supabase
 
 load_dotenv()
 
-GROQ_API_KEY  = os.environ["GROQ_API_KEY"]
-GROQ_MODEL    = "llama-3.1-8b-instant"
-groq_client   = Groq(api_key=GROQ_API_KEY)
+GROQ_API_KEY = os.environ["GROQ_API_KEY"]
+HF_TOKEN     = os.environ["HF_TOKEN"]
+GROQ_MODEL   = "llama-3.1-8b-instant"
+HF_MODEL_URL = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
 
-# Load once at import time — reused across all requests
-model = SentenceTransformer("all-MiniLM-L6-v2")
+groq_client  = Groq(api_key=GROQ_API_KEY)
 
 AMBIGUOUS_LOW  = 0.35
 AMBIGUOUS_HIGH = 0.65
 ALPHA          = 0.3   # EMA smoothing factor
+
+
+# ---------------------------------------------------------------------------
+# HF Inference API — embeddings
+# ---------------------------------------------------------------------------
+
+def _get_embeddings(texts: list[str]) -> list[list[float]]:
+    """
+    Get sentence embeddings from HF Inference API.
+    Retries once if model is loading (503).
+    """
+    headers  = {"Authorization": f"Bearer {HF_TOKEN}"}
+    payload  = {"inputs": texts, "options": {"wait_for_model": True}}
+
+    response = requests.post(HF_MODEL_URL, headers=headers, json=payload, timeout=30)
+
+    if response.status_code == 503:
+        # Model is loading — wait and retry once
+        time.sleep(10)
+        response = requests.post(HF_MODEL_URL, headers=headers, json=payload, timeout=30)
+
+    if response.status_code != 200:
+        raise ValueError(f"HF Inference API error {response.status_code}: {response.text}")
+
+    return response.json()
+
+
+def _cosine_sim(a: list[float], b: list[float]) -> float:
+    """Cosine similarity between two vectors."""
+    a = np.array(a)
+    b = np.array(b)
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-10))
 
 
 # ---------------------------------------------------------------------------
@@ -39,11 +76,16 @@ def cosine_score(user_answer: str, ideal_answers: list[str]) -> float:
     Max cosine similarity between user answer and all ideal answers.
     Max-pooling means credit is given if the user aligns with any one ideal answer,
     reducing false negatives caused by phrasing variation.
+    All texts sent to HF API in one batch call to minimize latency.
     """
-    emb_user   = model.encode(user_answer,   convert_to_tensor=True)
-    emb_ideals = model.encode(ideal_answers, convert_to_tensor=True)
-    scores = util.cos_sim(emb_user, emb_ideals)[0]
-    return round(scores.max().item(), 4)
+    all_texts  = [user_answer] + ideal_answers
+    embeddings = _get_embeddings(all_texts)
+
+    emb_user   = embeddings[0]
+    emb_ideals = embeddings[1:]
+
+    scores = [_cosine_sim(emb_user, emb_ideal) for emb_ideal in emb_ideals]
+    return round(max(scores), 4)
 
 
 def concept_coverage(user_answer: str, key_concepts: list[str]) -> float:
@@ -61,7 +103,6 @@ def combined_score(user_answer: str, ideal_answers: list[str], key_concepts: lis
     """
     Combined score: 0.6 x cosine + 0.4 x coverage.
     Cosine dominates because semantic understanding matters more than keyword recall.
-    Weights are a calibrated prior — can be tuned against human ratings once data exists.
     """
     cos   = cosine_score(user_answer, ideal_answers)
     cov   = concept_coverage(user_answer, key_concepts)
@@ -108,7 +149,7 @@ Reply with ONLY a number like: 0.72"""
             groq_score = float(resp.choices[0].message.content.strip())
             groq_score = max(0.0, min(1.0, groq_score))
         except ValueError:
-            groq_score = final  # fallback if Groq response can't be parsed
+            groq_score = final
 
         scores["final"]         = round(groq_score, 4)
         scores["groq_verified"] = True
@@ -125,11 +166,10 @@ Reply with ONLY a number like: 0.72"""
 def update_ema_state(current: dict, new_score: float) -> dict:
     """
     Update per-user per-topic EMA state after an answer.
-    - knowledge:  EMA of scores (alpha=0.3) — recent answers weighted 30%, history 70%
+    - knowledge:  EMA of scores (alpha=0.3)
     - variance:   EMA of squared deviation from knowledge estimate
-    - confidence: 1 - sqrt(variance) — how certain the system is about user's level
+    - confidence: 1 - sqrt(variance)
     - attempts:   total answers for this topic
-    Default priors for new users: knowledge=0.5, variance=0.25 (maximum uncertainty)
     """
     old_knowledge = current.get("knowledge", 0.5)
     old_variance  = current.get("variance",  0.25)
@@ -149,10 +189,7 @@ def update_ema_state(current: dict, new_score: float) -> dict:
 
 
 def persist_state(user_id: str, topic_id: int, new_state: dict) -> None:
-    """
-    Upsert user_topic_state row in Supabase.
-    Uses (user_id, topic_id) as conflict key — updates existing, inserts if new.
-    """
+    """Upsert user_topic_state row in Supabase."""
     supabase.table("user_topic_state").upsert({
         "user_id":    user_id,
         "topic_id":   topic_id,
@@ -174,12 +211,9 @@ def evaluate_and_update(
     """
     Full pipeline: evaluate answer → fetch state → update EMA → persist.
     Called by the /answers/evaluate endpoint.
-    Returns scores + updated state.
     """
-    # 1. Score the answer
     scores = evaluate_answer(user_answer, ideal_answers, key_concepts, question)
 
-    # 2. Fetch current state
     res = (
         supabase.table("user_topic_state")
         .select("*")
@@ -187,12 +221,8 @@ def evaluate_and_update(
         .eq("topic_id", topic_id)
         .execute()
     )
-    current = res.data[0] if res.data else {}
-
-    # 3. Update EMA
+    current   = res.data[0] if res.data else {}
     new_state = update_ema_state(current, scores["final"])
-
-    # 4. Persist
     persist_state(user_id, topic_id, new_state)
 
     return {"scores": scores, "state": new_state}
