@@ -104,10 +104,10 @@ with role-specific weights.*
 
 - [x] System architecture finalized
 - [x] Topic taxonomy and sample question bank designed
-- [ ] Supabase schema + data loading
-- [ ] Groq question generation pipeline
-- [ ] MiniLM evaluation pipeline
-- [ ] Thompson sampling + session flow
+- [X] Supabase schema + data loading
+- [x] Groq question generation pipeline
+- [x] MiniLM evaluation pipeline
+- [x] Thompson sampling + session flow
 - [ ] Resume parsing (PyMuPDF)
 - [ ] Frontend — auth, dashboard, interview UI
 - [ ] End to end V1 complete
