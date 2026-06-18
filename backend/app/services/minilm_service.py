@@ -23,8 +23,8 @@ from app.db.supabase import supabase
 
 load_dotenv()
 
-GROQ_API_KEY = os.environ["GROQ_API_KEY"]
-HF_TOKEN     = os.environ["HF_TOKEN"]
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "dummy_key")
+HF_TOKEN     = os.environ.get("HF_TOKEN", "dummy_token")
 GROQ_MODEL   = "llama-3.1-8b-instant"
 HF_MODEL_URL = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
 
@@ -34,30 +34,39 @@ AMBIGUOUS_LOW  = 0.35
 AMBIGUOUS_HIGH = 0.65
 ALPHA          = 0.3   # EMA smoothing factor
 
+import cohere
+co = cohere.Client(os.environ.get("COHERE_API_KEY", ""))
+
+def _get_embeddings_cohere(texts: list[str]) -> list[list[float]]:
+    response = co.embed(
+        texts=texts,
+        model="embed-english-light-v3.0",
+        input_type="search_document"
+    )
+    return response.embeddings
 
 # ---------------------------------------------------------------------------
 # HF Inference API — embeddings
 # ---------------------------------------------------------------------------
 
-def _get_embeddings(texts: list[str]) -> list[list[float]]:
-    """
-    Get sentence embeddings from HF Inference API.
-    Retries once if model is loading (503).
-    """
-    headers  = {"Authorization": f"Bearer {HF_TOKEN}"}
-    payload  = {"inputs": texts, "options": {"wait_for_model": True}}
+ddef _get_embeddings(texts: list[str]) -> list[list[float]]:
+    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    payload = {"inputs": texts, "options": {"wait_for_model": True}}
 
-    response = requests.post(HF_MODEL_URL, headers=headers, json=payload, timeout=30)
-
-    if response.status_code == 503:
-        # Model is loading — wait and retry once
-        time.sleep(10)
-        response = requests.post(HF_MODEL_URL, headers=headers, json=payload, timeout=30)
-
-    if response.status_code != 200:
-        raise ValueError(f"HF Inference API error {response.status_code}: {response.text}")
-
-    return response.json()
+    last_err = None
+    for attempt in range(3):
+        try:
+            response = requests.post(HF_MODEL_URL, headers=headers, json=payload, timeout=30)
+            if response.status_code == 503:
+                time.sleep(10)
+                response = requests.post(HF_MODEL_URL, headers=headers, json=payload, timeout=30)
+            if response.status_code != 200:
+                raise ValueError(f"HF API error {response.status_code}: {response.text}")
+            return response.json()
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            last_err = e
+            time.sleep(2 ** attempt)
+    raise ConnectionError(f"HF unreachable after 3 attempts: {last_err}")
 
 
 def _cosine_sim(a: list[float], b: list[float]) -> float:
@@ -72,18 +81,14 @@ def _cosine_sim(a: list[float], b: list[float]) -> float:
 # ---------------------------------------------------------------------------
 
 def cosine_score(user_answer: str, ideal_answers: list[str]) -> float:
-    """
-    Max cosine similarity between user answer and all ideal answers.
-    Max-pooling means credit is given if the user aligns with any one ideal answer,
-    reducing false negatives caused by phrasing variation.
-    All texts sent to HF API in one batch call to minimize latency.
-    """
-    all_texts  = [user_answer] + ideal_answers
-    embeddings = _get_embeddings(all_texts)
-
+    all_texts = [user_answer] + ideal_answers
+    try:
+        embeddings = _get_embeddings(all_texts)
+    except Exception:
+        embeddings = _get_embeddings_cohere(all_texts)
+    
     emb_user   = embeddings[0]
     emb_ideals = embeddings[1:]
-
     scores = [_cosine_sim(emb_user, emb_ideal) for emb_ideal in emb_ideals]
     return round(max(scores), 4)
 

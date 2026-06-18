@@ -34,6 +34,5 @@ app.include_router(questions.router, prefix="/questions", tags=["questions"])
 app.include_router(answers.router,   prefix="/answers",   tags=["answers"])
 app.include_router(sessions.router,  prefix="/sessions",  tags=["sessions"])
 
-# Routers to be added:
-# from app.routers import users
-# app.include_router(users.router, prefix="/users", tags=["users"])
+from app.routers import users
+app.include_router(users.router, prefix="/users", tags=["users"])
