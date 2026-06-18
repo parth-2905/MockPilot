@@ -120,17 +120,24 @@ Generate exactly 2 technical interview questions based on the resume above.
 Priority logic:
 1. If the resume mentions any of the weak areas listed above, generate questions that specifically 
    probe the candidate's understanding of those concepts within the context of their actual work/projects.
-   Example: "You used Random Forests in your fraud detection project — how did you handle class imbalance 
-   and what metrics did you optimize for?"
 2. If there is no overlap between resume content and weak areas, generate the 2 most technically 
    challenging and insightful questions you can from the resume content.
 3. Never ask generic HR questions. Always technical, always specific to their experience.
 4. Questions should be hard enough to differentiate strong candidates from average ones.
 
-Return a JSON array of exactly 2 objects, each with:
-- "question": the interview question (string)
-- "ideal_answers": array of 3 distinct strong answer approaches (each covering all key concepts)
-- "key_concepts": array of 3-7 key concepts a strong answer must mention
+Return a JSON array of exactly 2 objects. Each object must follow this EXACT structure:
+{{
+  "question": "the interview question as a single string",
+  "ideal_answers": [
+    "a complete plain-text paragraph describing one strong answer approach",
+    "a complete plain-text paragraph describing a second strong answer approach",
+    "a complete plain-text paragraph describing a third strong answer approach"
+  ],
+  "key_concepts": ["concept1", "concept2", "concept3"]
+}}
+
+CRITICAL: "ideal_answers" must be an array of exactly 3 PLAIN STRINGS (full sentences/paragraphs).
+Do NOT use nested objects or dictionaries inside ideal_answers. Each element must be type string only.
 
 JSON only, no markdown:"""
 
@@ -155,10 +162,22 @@ JSON only, no markdown:"""
         raw = raw.strip()
 
     try:
-        questions = json.loads(raw)
-        if not isinstance(questions, list) or len(questions) != 2:
-            raise ValueError("Expected list of 2 questions")
-    except (json.JSONDecodeError, ValueError) as e:
-        raise ValueError(f"Groq returned invalid response: {raw}") from e
+    questions = json.loads(raw)
+    if not isinstance(questions, list) or len(questions) != 2:
+        raise ValueError("Expected list of 2 questions")
 
-    return questions
+    # Normalize: if ideal_answers contains dicts, flatten them to strings
+    for q in questions:
+        if not isinstance(q.get("ideal_answers"), list):
+            raise ValueError("ideal_answers must be a list")
+        normalized = []
+        for ans in q["ideal_answers"]:
+            if isinstance(ans, dict):
+                # Flatten dict values into one string
+                normalized.append(" ".join(str(v) for v in ans.values()))
+            else:
+                normalized.append(str(ans))
+        q["ideal_answers"] = normalized
+
+except (json.JSONDecodeError, ValueError) as e:
+    raise ValueError(f"Groq returned invalid response: {raw}") from e
