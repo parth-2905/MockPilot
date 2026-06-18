@@ -49,7 +49,7 @@ def _get_embeddings_cohere(texts: list[str]) -> list[list[float]]:
 # HF Inference API — embeddings
 # ---------------------------------------------------------------------------
 
-ddef _get_embeddings(texts: list[str]) -> list[list[float]]:
+def _get_embeddings(texts: list[str]) -> list[list[float]]:
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
     payload = {"inputs": texts, "options": {"wait_for_model": True}}
 
