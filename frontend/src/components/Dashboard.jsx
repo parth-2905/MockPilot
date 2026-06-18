@@ -426,6 +426,14 @@ function InterviewOverlay({ user, role, session: initialSession, onClose, onSess
     return () => cancelAnimationFrame(waveAnimRef.current);
   }, [isRecording]);
 
+  // Keep-alive ping during interview
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch(`${API}/`).catch(() => { });
+    }, 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Web Speech API
   const startRecording = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -948,7 +956,13 @@ export default function Dashboard({ user, onLogout }) {
   }, [user?.id, role]);
 
   useEffect(() => { fetchTopicStates(); fetchSessions(); }, [fetchTopicStates, fetchSessions]);
-
+  // Keep backend alive
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch(`${API}/`).catch(() => { });
+    }, 4 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
   const handleFileUpload = e => {
     const file = e.target.files?.[0];
     if (!file) return;
