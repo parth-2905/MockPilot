@@ -162,22 +162,22 @@ JSON only, no markdown:"""
         raw = raw.strip()
 
     try:
-    questions = json.loads(raw)
-    if not isinstance(questions, list) or len(questions) != 2:
-        raise ValueError("Expected list of 2 questions")
+        questions = json.loads(raw)
+        if not isinstance(questions, list) or len(questions) != 2:
+            raise ValueError("Expected list of 2 questions")
 
-    # Normalize: if ideal_answers contains dicts, flatten them to strings
-    for q in questions:
-        if not isinstance(q.get("ideal_answers"), list):
-            raise ValueError("ideal_answers must be a list")
-        normalized = []
-        for ans in q["ideal_answers"]:
-            if isinstance(ans, dict):
-                # Flatten dict values into one string
-                normalized.append(" ".join(str(v) for v in ans.values()))
-            else:
-                normalized.append(str(ans))
-        q["ideal_answers"] = normalized
+        # Normalize: if ideal_answers contains dicts, flatten them to strings
+        for q in questions:
+            if not isinstance(q.get("ideal_answers"), list):
+                raise ValueError("ideal_answers must be a list")
+            normalized = []
+            for ans in q["ideal_answers"]:
+                if isinstance(ans, dict):
+                    normalized.append(" ".join(str(v) for v in ans.values()))
+                else:
+                    normalized.append(str(ans))
+            q["ideal_answers"] = normalized
+    except (json.JSONDecodeError, ValueError) as e:
+        raise ValueError(f"Groq returned invalid response: {raw}") from e
 
-except (json.JSONDecodeError, ValueError) as e:
-    raise ValueError(f"Groq returned invalid response: {raw}") from e
+    return questions
