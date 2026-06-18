@@ -483,46 +483,43 @@ function InterviewOverlay({ user, role, session: initialSession, onClose, onSess
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      setEvaluation(data);
-      setStep("evaluation");
+
+      // Save to history and move on directly — no evaluation screen
+      const newEntry = {
+        question_number: currentQ.question_number,
+        topic_name: currentQ.topic_name,
+        question: currentQ.question,
+        user_answer: userAnswer,
+        is_resume: currentQ.is_resume,
+        key_concepts: currentQ.key_concepts ?? [],
+        cosine: data.score.cosine,
+        coverage: data.score.coverage,
+        final: data.score.final,
+        difficulty: currentQ.difficulty,
+      };
+      const newHistory = [...history, newEntry];
+      setHistory(newHistory);
+
+      if (data.session_complete) {
+        const avg = newHistory.reduce((s, a) => s + a.final, 0) / newHistory.length;
+        setOverallScore(Math.round(avg * 100));
+        setStep("done");
+        onSessionComplete?.();
+        return;
+      }
+
+      const nq = data.next_question;
+      setCurrentQ({ ...session, ...nq });
+      setUserAnswer("");
+      setThinkPhase(true);
+      setThinkSeconds(45);
+      setStep("question");
+
     } catch (e) {
       setError(e.message || "Failed to submit answer.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleNext = () => {
-    const newEntry = {
-      question_number: currentQ.question_number,
-      topic_name: currentQ.topic_name,
-      question: currentQ.question,
-      user_answer: userAnswer,
-      is_resume: currentQ.is_resume,
-      key_concepts: currentQ.key_concepts ?? [],
-      cosine: evaluation.score.cosine,
-      coverage: evaluation.score.coverage,
-      final: evaluation.score.final,
-      difficulty: currentQ.difficulty,
-    };
-    const newHistory = [...history, newEntry];
-    setHistory(newHistory);
-
-    if (evaluation.session_complete) {
-      const avg = newHistory.reduce((s, a) => s + a.final, 0) / newHistory.length;
-      setOverallScore(Math.round(avg * 100));
-      setStep("done");
-      onSessionComplete?.();
-      return;
-    }
-
-    const nq = evaluation.next_question;
-    setCurrentQ({ ...session, ...nq });
-    setUserAnswer("");
-    setEvaluation(null);
-    setThinkPhase(true);
-    setThinkSeconds(45);
-    setStep("question");
   };
 
   return (
