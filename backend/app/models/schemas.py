@@ -105,7 +105,7 @@ class NextQuestion(BaseModel):
 class SessionSubmitResponse(BaseModel):
     session_complete: bool
     score:            ScoreDetail
-    state:            StateDetail
+    state:            Optional[StateDetail] = None
     next_question:    Optional[NextQuestion] = None
 
 
