@@ -215,9 +215,13 @@ def evaluate_and_update(
 ) -> dict:
     """
     Full pipeline: evaluate answer → fetch state → update EMA → persist.
-    Called by the /answers/evaluate endpoint.
+    Skips state persistence for resume questions (topic_id = -1).
     """
     scores = evaluate_answer(user_answer, ideal_answers, key_concepts, question)
+
+    if topic_id == -1:
+        # Resume question — no topic state to update
+        return {"scores": scores, "state": None}
 
     res = (
         supabase.table("user_topic_state")
