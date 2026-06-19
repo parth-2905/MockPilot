@@ -78,7 +78,9 @@ def select_topics(user_id: str, role: str, n: int = 5) -> list[dict]:
     for topic in topics:
         topic_id    = topic["id"]
         topic_name  = topic["name"]
-        role_weight = topic.get(weight_col) or 0.5  # fallback if NULL
+        raw_weight  = topic.get(weight_col)
+        role_weight = raw_weight if raw_weight is not None else 0.5  # fallback only if NULL, not if explicitly 0
+
 
         # Skip topics with zero role weight — irrelevant for this role
         if role_weight == 0.0:
