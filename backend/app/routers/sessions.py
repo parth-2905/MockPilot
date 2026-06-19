@@ -42,17 +42,22 @@ RESUME_QUESTIONS      = 2
 # Difficulty from knowledge
 # ---------------------------------------------------------------------------
 
-def _get_difficulty(knowledge: float) -> str:
+def _get_difficulty(knowledge: float, confidence: float = 0.5) -> str:
     """
-    Derive question difficulty from user's knowledge score for a topic.
-    knowledge < 0.4  → easy   (struggling, build confidence)
-    0.4 ≤ k < 0.7   → medium (basics covered, push deeper)
-    k ≥ 0.7          → hard   (strong, challenge them)
-    New users default to knowledge=0.5 → medium.
+    Derive question difficulty from user's effective score for a topic.
+
+    effective_score = 0.7 * knowledge + 0.3 * confidence
+
+    effective_score < 0.4  → easy   (struggling, build confidence)
+    0.4 ≤ s < 0.7          → medium (basics covered, push deeper)
+    s ≥ 0.7                 → hard   (strong, challenge them)
+    New users default to knowledge=0.5, confidence=0.5 → effective_score=0.5 → medium.
     """
-    if knowledge < 0.4:
+    effective_score = 0.7 * knowledge + 0.3 * confidence
+
+    if effective_score < 0.4:
         return "easy"
-    elif knowledge < 0.7:
+    elif effective_score < 0.7:
         return "medium"
     else:
         return "hard"
@@ -96,13 +101,14 @@ def _generate_topic_question(topic: dict, role: str, user_id: str) -> dict:
     # Fetch user's current knowledge for this topic
     res = (
         supabase.table("user_topic_state")
-        .select("knowledge")
+        .select("knowledge, confidence")
         .eq("user_id", user_id)
         .eq("topic_id", topic["topic_id"])
         .execute()
     )
-    knowledge  = res.data[0]["knowledge"] if res.data else 0.5
-    difficulty = _get_difficulty(knowledge)
+    knowledge  = res.data[0]["knowledge"]  if res.data else 0.5
+    confidence = res.data[0]["confidence"] if res.data else 0.5
+    difficulty = _get_difficulty(knowledge, confidence)
 
     result = generate_question(
         topic_name=topic["topic_name"],
