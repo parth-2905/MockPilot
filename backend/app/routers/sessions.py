@@ -281,7 +281,7 @@ def submit_answer(req: SessionSubmitRequest):
             "ideal_answers": rq["ideal_answers"],
             "key_concepts":  rq["key_concepts"],
             "is_resume":     True,
-            "difficulty":    "medium"  # resume questions don't have a difficulty level
+            "difficulty":    "N/A"  # resume questions don't have a difficulty level
         }
         is_resume = True
 

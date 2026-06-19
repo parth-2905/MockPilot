@@ -22,7 +22,8 @@ Why top 5:
 import math
 import numpy as np
 from app.db.supabase import supabase
-
+import random
+DSA_TOPIC_NAME = "DSA"
 
 def _beta_params(knowledge: float, variance: float) -> tuple[float, float]:
     """
@@ -108,6 +109,21 @@ def select_topics(user_id: str, role: str, n: int = 5) -> list[dict]:
             "score":      round(final_score, 6)
         })
 
-    # 6. Sort descending, return top n
+    # 6. Sort descending by Thompson score
     scored_topics.sort(key=lambda x: x["score"], reverse=True)
-    return scored_topics[:n]
+    top_n = scored_topics[:n]
+
+    # 7. Guarantee DSA is included among the n selected topics.
+    #    If it didn't naturally make the cut, swap it in for whichever
+    #    topic scored lowest (least urgent gets bumped, not a random one).
+    dsa_entry = next((t for t in scored_topics if t["topic_name"] == DSA_TOPIC_NAME), None)
+    if dsa_entry and dsa_entry not in top_n:
+        top_n[-1] = dsa_entry
+
+    # 8. Randomize order. Without this, DSA (and every topic) would always
+    #    land at the same question number — predictable score-ranking order
+    #    isn't realistic for an interview. Shuffle so position varies each
+    #    session while still respecting *which* 5 topics urgency picked.
+    random.shuffle(top_n)
+
+    return top_n
