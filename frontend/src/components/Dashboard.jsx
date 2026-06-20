@@ -79,6 +79,9 @@ function avgScore(answers) {
   return answers.reduce((s, a) => s + (a.final ?? 0), 0) / answers.length;
 }
 
+// Responsive layout is handled entirely by CSS media queries in index.css
+// See .dash-* classes and @media breakpoints
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -163,7 +166,7 @@ function StatsRow({ topicStates, sessionCount }) {
   const weakTopicName = weakest?.topics?.name ?? weakest?.topic_name ?? "—";
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "1.25rem" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: "10px", marginBottom: "1.25rem" }}>
       {[
         { label: "Prep Level", val: `${prepLevel}%`, sub: scoreLabel(prepLevel / 100) },
         { label: "Strongest", val: strongTopicName.length > 12 ? strongTopicName.substring(0, 10) + "..." : strongTopicName, sub: `${Math.round((strongest?.knowledge ?? 0) * 100)}%` },
@@ -212,7 +215,7 @@ function SessionHistory({ sessions, loading }) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "400px", overflowY: "auto", paddingRight: "4px" }}>
       {sessions.map(sess => {
         const answers = sess.answers ?? [];
         const overall = avgScore(answers);
@@ -367,6 +370,7 @@ function SessionHistory({ sessions, loading }) {
 // ---- Interview Overlay -----------------------------------------------------
 
 function InterviewOverlay({ user, role, session: initialSession, onClose, onSessionComplete }) {
+  // Responsive layout handled by CSS classes: dash-overlay-nav, dash-overlay-content, dash-overlay-actions, dash-eval-grid
   const [step, setStep] = useState("question");
   const [session, setSession] = useState(initialSession);           // ← use prop
   const [currentQ, setCurrentQ] = useState(initialSession);        // ← use prop
@@ -528,6 +532,7 @@ function InterviewOverlay({ user, role, session: initialSession, onClose, onSess
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5, ease: EASE }}
+      data-lenis-prevent
       style={{
         position: "fixed", inset: 0, zIndex: 100,
         background: "#050505", display: "flex", flexDirection: "column",
@@ -536,16 +541,12 @@ function InterviewOverlay({ user, role, session: initialSession, onClose, onSess
       }}
     >
       {/* Overlay nav */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "1.25rem 2rem", borderBottom: "0.5px solid #1a1a1a",
-        position: "sticky", top: 0, background: "#050505", zIndex: 10
-      }}>
+      <div className="dash-overlay-nav">
         <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" }}>
           MockPilot
         </span>
         {step !== "done" && currentQ && (
-          <span style={{ fontSize: "11px", color: "#444", fontFamily: "monospace", letterSpacing: "0.08em" }}>
+          <span style={{ fontSize: "11px", color: "#444", fontFamily: "monospace", letterSpacing: "0.08em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
             Q{currentQ.question_number} / {currentQ.total_questions} &nbsp;·&nbsp; {currentQ.topic_name}
           </span>
         )}
@@ -555,7 +556,7 @@ function InterviewOverlay({ user, role, session: initialSession, onClose, onSess
             display: "flex", alignItems: "center", gap: "6px", background: "none",
             border: "0.5px solid #222", borderRadius: "6px", padding: "6px 12px",
             color: "#555", cursor: "pointer", fontSize: "11px",
-            textTransform: "uppercase", letterSpacing: "0.1em"
+            textTransform: "uppercase", letterSpacing: "0.1em", flexShrink: 0
           }}
         >
           <X size={12} /> Exit
@@ -563,10 +564,7 @@ function InterviewOverlay({ user, role, session: initialSession, onClose, onSess
       </div>
 
       {/* Main content */}
-      <div style={{
-        flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center",
-        padding: "3rem 2rem", maxWidth: "760px", margin: "0 auto", width: "100%"
-      }}>
+      <div className="dash-overlay-content">
         <AnimatePresence mode="wait">
 
           {/* Question step */}
@@ -667,7 +665,7 @@ function InterviewOverlay({ user, role, session: initialSession, onClose, onSess
               )}
 
               {/* Actions */}
-              <div style={{ display: "flex", gap: "10px" }}>
+              <div className="dash-overlay-actions">
                 <button
                   onClick={isRecording ? stopRecording : startRecording}
                   disabled={thinkPhase}
@@ -736,7 +734,7 @@ function InterviewOverlay({ user, role, session: initialSession, onClose, onSess
               </div>
 
               {/* Score breakdown */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+              <div className="dash-eval-grid">
                 {[
                   { label: "Semantic Similarity", val: Math.round(evaluation.score.cosine * 100) + "%" },
                   { label: "Concept Coverage", val: Math.round(evaluation.score.coverage * 100) + "%" },
@@ -877,6 +875,7 @@ export default function Dashboard({ user, onLogout }) {
   const [loadingStates, setLoadingStates] = useState(true);
   const [loadingSessions, setLoadingSessions] = useState(true);
 
+
   // Right panel state
   const [resumeB64, setResumeB64] = useState("");
   const [resumeName, setResumeName] = useState("");
@@ -1008,27 +1007,20 @@ export default function Dashboard({ user, onLogout }) {
 
   return (
     <>
-      <div style={{
-        minHeight: "100vh", background: "transparent", color: "#f5f2ea",
-        fontFamily: "inherit", padding: "2.5rem 2rem",
-        boxSizing: "border-box"
-      }}>
+      <div className="dash-root" style={{ background: "transparent" }}>
         {/* Header */}
-        <header style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          borderBottom: "0.5px solid #1a1a1a", paddingBottom: "1.5rem", marginBottom: "2.5rem"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+        <header className="dash-header">
+          <div className="dash-header-left">
             <span style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" }}>
               MockPilot
             </span>
-            <div style={{ width: "1px", height: "14px", background: "#1e1e1e" }} />
+            <div className="dash-header-divider" />
             <span style={{ fontSize: "11px", color: "#333", fontWeight: 300 }}>
               Console // {user?.email?.split("@")[0]}
             </span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+          <div className="dash-header-right">
             <div style={{ display: "flex", border: "0.5px solid #1e1e1e", borderRadius: "6px", overflow: "hidden" }}>
               {[["sde_1", "SDE"], ["ml_ds", "ML / DS"]].map(([val, label]) => (
                 <button
@@ -1064,15 +1056,10 @@ export default function Dashboard({ user, onLogout }) {
         </header>
 
         {/* Grid */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 320px",
-          gap: "2rem",
-          alignItems: "start"
-        }}>
+        <div className="dash-grid">
 
           {/* Left — Analysis */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div className="dash-analysis">
             <span style={{
               fontSize: "10px", fontWeight: 700, letterSpacing: "0.3em",
               color: "#f5f2ea", textTransform: "uppercase"
@@ -1110,18 +1097,14 @@ export default function Dashboard({ user, onLogout }) {
                 letterSpacing: "0.3em", color: "#f5f2ea",
                 textTransform: "uppercase", marginBottom: "1rem"
               }}>
-                // Past Sessions
+                // Past Sessions ({sessions.length})
               </span>
               <SessionHistory sessions={sessions} loading={loadingSessions} />
             </div>
           </div>
 
           {/* Right — Launch */}
-          <div style={{
-            border: "0.5px solid #1a1a1a", borderRadius: "10px",
-            padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem",
-            position: "sticky", top: "1.5rem"
-          }}>
+          <div className="dash-launch">
             <span style={{
               fontSize: "10px", fontWeight: 700, letterSpacing: "0.3em",
               color: "#f5f2ea", textTransform: "uppercase"
@@ -1130,7 +1113,7 @@ export default function Dashboard({ user, onLogout }) {
             </span>
 
             <div>
-              <h3 style={{ fontSize: "1.3rem", fontWeight: 700, letterSpacing: "-0.01em", margin: "0 0 6px" }}>
+              <h3 className="dash-launch-title" style={{ fontWeight: 700, letterSpacing: "-0.01em", margin: "0 0 6px" }}>
                 Ready to fly?
               </h3>
               <p style={{ fontSize: "12px", color: "#444", lineHeight: 1.6, margin: 0, fontWeight: 300 }}>

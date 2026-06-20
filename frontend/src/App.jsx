@@ -38,7 +38,7 @@ export default function App() {
 
   /* Lenis smooth scroll */
   useEffect(() => {
-    if (loading || user) return;
+    if (loading) return;
 
     const lenis = new Lenis({
       duration: 1.6,
@@ -46,14 +46,18 @@ export default function App() {
       smoothWheel: true,
     });
 
+    let rafId;
     function raf(time) {
       lenis.raf(time);
-      requestAnimationFrame(raf);
+      rafId = requestAnimationFrame(raf);
     }
 
-    requestAnimationFrame(raf);
-    return () => lenis.destroy();
-  }, [loading, user]);
+    rafId = requestAnimationFrame(raf);
+    return () => {
+      lenis.destroy();
+      cancelAnimationFrame(rafId);
+    };
+  }, [loading]);
 
   return (
     <>
