@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useMotionTemplate } from "framer-motion";
 
 const features = [
   {
@@ -47,8 +47,10 @@ export default function FeatureExhibition() {
     offset: ["start start", "end end"],
   });
 
-  // Map vertical scroll to horizontal card movement using container percentage width (works for any card size)
-  const x = useTransform(scrollYProgress, [0, 1], ["0%", "-85.71%"]);
+  // Inject the raw 0-1 progress into a native CSS calc string.
+  // The browser multiplies the progress by the exact distance needed to align the track's right edge with the viewport.
+  // This bypasses any Framer Motion interpolation limits and avoids React layout measurement bugs.
+  const transform = useMotionTemplate`translateX(calc(${scrollYProgress} * (-100% + 100vw)))`;
 
   return (
     <section id="features" ref={containerRef} className="relative" style={{ height: `${features.length * 100}vh` }}>
@@ -63,7 +65,7 @@ export default function FeatureExhibition() {
 
         {/* Horizontal rail */}
         <motion.div
-          style={{ x }}
+          style={{ transform }}
           className="flex flex-row flex-nowrap w-fit"
         >
           {features.map((feature) => (
