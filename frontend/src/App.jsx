@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Lenis from "lenis";
+import { frame, cancelFrame } from "framer-motion";
+
 
 import CustomCursor from "./components/CustomCursor";
 import Loader from "./components/Loader";
@@ -36,7 +38,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  /* Lenis smooth scroll */
+  /* Lenis smooth scroll — synced to Framer Motion's frame loop */
   useEffect(() => {
     if (loading) return;
 
@@ -46,16 +48,15 @@ export default function App() {
       smoothWheel: true,
     });
 
-    let rafId;
-    function raf(time) {
-      lenis.raf(time);
-      rafId = requestAnimationFrame(raf);
+    function update(data) {
+      lenis.raf(data.timestamp);
     }
 
-    rafId = requestAnimationFrame(raf);
+    frame.update(update, true);
+
     return () => {
       lenis.destroy();
-      cancelAnimationFrame(rafId);
+      cancelFrame(update);
     };
   }, [loading]);
 

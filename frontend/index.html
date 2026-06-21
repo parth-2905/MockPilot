@@ -1,25 +1,30 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/src/assets/react.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MockPilot — AI-Powered Adaptive Mock Interview Platform</title>
-    <meta name="description" content="Stop solving random questions. MockPilot tracks your knowledge, predicts weaknesses, and generates interviews that evolve with your progress." />
-    <meta name="keywords" content="AI mock interview, software engineering interview, adaptive learning, technical interview prep, Thompson sampling, Llama 3.1, Groq, CS student mock interviews" />
-    <script>
-      // Early interceptor for Supabase Google OAuth redirect in a popup
-      if (window.opener && window.location.hash && window.location.hash.includes("access_token")) {
-        window.opener.postMessage({
-          type: "REAL_GOOGLE_AUTH_SUCCESS",
-          hash: window.location.hash
-        }, window.location.origin);
-        window.close();
-      }
-    </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/src/assets/react.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MockPilot</title>
+  <meta name="description"
+    content="Stop solving random questions. MockPilot tracks your knowledge, predicts weaknesses, and generates interviews that evolve with your progress." />
+  <meta name="keywords"
+    content="AI mock interview, software engineering interview, adaptive learning, technical interview prep, Thompson sampling, Llama 3.1, Groq, CS student mock interviews" />
+  <script>
+    // Early interceptor for Supabase Google OAuth redirect in a popup
+    if (window.opener && window.location.hash && window.location.hash.includes("access_token")) {
+      window.opener.postMessage({
+        type: "REAL_GOOGLE_AUTH_SUCCESS",
+        hash: window.location.hash
+      }, window.location.origin);
+      window.close();
+    }
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>
